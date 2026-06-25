@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, RefreshCcw, Search } from 'lucide-react';
+import DeleteProductModal from '../components/products/DeleteProductModal';
+import Pagination from '../components/products/Pagination';
 import ProductFormModal from '../components/products/ProductFormModal';
 import ProductTable from '../components/products/ProductTable';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -8,13 +10,20 @@ import { productService } from '../services/productService';
 
 const ProductsPage = () => {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
-  const { products, isLoading, error, refetchProducts } = useProducts(debouncedSearch);
+  const { products, meta, isLoading, error, refetchProducts } = useProducts(debouncedSearch, page);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productToDelete, setProductToDelete] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formError, setFormError] = useState('');
   const [actionError, setActionError] = useState('');
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
 
   const openCreateModal = () => {
     setSelectedProduct(null);
@@ -46,7 +55,11 @@ const ProductsPage = () => {
       }
 
       setIsModalOpen(false);
-      await refetchProducts();
+      if (page !== 1) {
+        setPage(1);
+      } else {
+        await refetchProducts();
+      }
     } catch (err) {
       setFormError(err.message || 'Unable to save product');
     } finally {
@@ -55,19 +68,47 @@ const ProductsPage = () => {
   };
 
   const handleDelete = async product => {
-    const confirmed = window.confirm(`Delete "${product.name}"?`);
+    setProductToDelete(product);
+    setActionError('');
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (!isDeleting) {
+      setProductToDelete(null);
+      setActionError('');
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete) {
       return;
     }
 
+    setIsDeleting(true);
     setActionError('');
 
     try {
-      await productService.deleteProduct(product.id);
-      await refetchProducts();
+      await productService.deleteProduct(productToDelete.id);
+      setProductToDelete(null);
+
+      if (products.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        await refetchProducts();
+      }
     } catch (err) {
       setActionError(err.message || 'Unable to delete product');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handlePageChange = nextPage => {
+    const totalPages = meta?.totalPages || 1;
+    const normalizedPage = Math.min(Math.max(nextPage, 1), totalPages);
+
+    if (normalizedPage !== page) {
+      setPage(normalizedPage);
     }
   };
 
@@ -130,7 +171,10 @@ const ProductsPage = () => {
           />
         </div>
       ) : products.length > 0 ? (
-        <ProductTable products={products} onEdit={openEditModal} onDelete={handleDelete} />
+        <>
+          <ProductTable products={products} onEdit={openEditModal} onDelete={handleDelete} />
+          <Pagination meta={meta} isLoading={isLoading} onPageChange={handlePageChange} />
+        </>
       ) : (
         <div className="grid min-h-64 place-items-center rounded-lg border border-slate-200 bg-white p-8 text-center">
           <div>
@@ -149,6 +193,13 @@ const ProductsPage = () => {
         apiError={formError}
         onClose={closeModal}
         onSubmit={handleSubmit}
+      />
+      <DeleteProductModal
+        product={productToDelete}
+        isDeleting={isDeleting}
+        error={actionError}
+        onCancel={closeDeleteModal}
+        onConfirm={confirmDelete}
       />
     </section>
   );

@@ -3,9 +3,12 @@ const { Product } = require('../models');
 const ApiError = require('../utils/errors/ApiError');
 
 const PRODUCT_UPDATE_FIELDS = ['name', 'category', 'price', 'stockStatus'];
+const PRODUCT_PAGE_SIZE = 10;
 
-const listProducts = async ({ search }) => {
+const listProducts = async ({ search, page = 1 }) => {
   const where = {};
+  const currentPage = Number(page) || 1;
+  const offset = (currentPage - 1) * PRODUCT_PAGE_SIZE;
 
   if (search) {
     where.name = {
@@ -13,10 +16,22 @@ const listProducts = async ({ search }) => {
     };
   }
 
-  return Product.findAll({
+  const { rows, count } = await Product.findAndCountAll({
     where,
     order: [['createdAt', 'DESC']],
+    limit: PRODUCT_PAGE_SIZE,
+    offset,
   });
+
+  return {
+    products: rows,
+    pagination: {
+      page: currentPage,
+      limit: PRODUCT_PAGE_SIZE,
+      total: count,
+      totalPages: Math.max(Math.ceil(count / PRODUCT_PAGE_SIZE), 1),
+    },
+  };
 };
 
 const getProductById = async productId => {

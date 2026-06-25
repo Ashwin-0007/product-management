@@ -2,8 +2,9 @@ const productService = require('../services/product.service');
 const { successResponse } = require('../utils/apiResponse');
 
 const listProducts = async (req, res) => {
-  const products = await productService.listProducts({
+  const { products, pagination } = await productService.listProducts({
     search: req.query.search,
+    page: req.query.page,
   });
 
   return successResponse(res, {
@@ -11,6 +12,7 @@ const listProducts = async (req, res) => {
     data: products,
     meta: {
       count: products.length,
+      ...pagination,
     },
   });
 };

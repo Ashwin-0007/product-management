@@ -15,6 +15,11 @@ const searchProductsSchema = Joi.object({
   search: Joi.string().trim().max(120).optional().allow('').messages({
     'string.max': 'Search term must be at most 120 characters',
   }),
+  page: Joi.number().integer().positive().default(1).messages({
+    'number.base': 'Page must be a positive integer',
+    'number.integer': 'Page must be a positive integer',
+    'number.positive': 'Page must be a positive integer',
+  }),
 });
 
 const productPayloadSchema = {

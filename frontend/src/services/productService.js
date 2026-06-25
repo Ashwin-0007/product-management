@@ -1,10 +1,14 @@
 import { request } from '../api/httpClient';
 
-const buildQuery = search => {
+const buildQuery = ({ search, page }) => {
   const params = new URLSearchParams();
 
   if (search?.trim()) {
     params.set('search', search.trim());
+  }
+
+  if (page) {
+    params.set('page', page);
   }
 
   const query = params.toString();
@@ -12,9 +16,12 @@ const buildQuery = search => {
 };
 
 export const productService = {
-  async listProducts({ search = '' } = {}) {
-    const payload = await request(`/products${buildQuery(search)}`);
-    return payload.data;
+  async listProducts({ search = '', page = 1 } = {}) {
+    const payload = await request(`/products${buildQuery({ search, page })}`);
+    return {
+      data: payload.data,
+      meta: payload.meta,
+    };
   },
 
   async createProduct(product) {
